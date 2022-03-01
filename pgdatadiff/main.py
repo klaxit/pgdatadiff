@@ -1,6 +1,6 @@
 """
 Usage:
-  pgdatadiff --firstdb=<firstconnectionstring> --seconddb=<secondconnectionstring> [--only-data|--only-sequences] [--count-only] [--chunk-size=<size>]
+  pgdatadiff --firstdb=<firstconnectionstring> --seconddb=<secondconnectionstring> [--only-data|--only-sequences] [--count-only] [--chunk-size=<size>] [--check-columns=<column> ...]
   pgdatadiff --version
 
 Options:
@@ -12,6 +12,7 @@ Options:
   --only-sequences   Only compare seqences, exclude data
   --count-only       Do a quick test based on counts alone
   --chunk-size=10000       The chunk size when comparing data [default: 10000]
+  --check-columns=column-name    Restrict check to given columns, repeatable. Primary key is always checked.
 """
 
 import pkg_resources
@@ -34,7 +35,9 @@ def main():
 
     differ = DBDiff(first_db_connection_string, second_db_connection_string,
                     chunk_size=arguments['--chunk-size'],
-                    count_only=arguments['--count-only'])
+                    count_only=arguments['--count-only'],
+                    check_columns=arguments['--check-columns']
+                    )
 
     if not arguments['--only-sequences']:
         if differ.diff_all_table_data():

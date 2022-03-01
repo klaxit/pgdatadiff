@@ -19,7 +19,14 @@ def make_session(connection_string):
 
 class DBDiff(object):
 
-    def __init__(self, firstdb, seconddb, chunk_size=10000, count_only=False):
+    def __init__(
+        self,
+        firstdb,
+        seconddb,
+        chunk_size=10000,
+        count_only=False,
+        check_columns=None
+    ):
         firstsession, firstengine = make_session(firstdb)
         secondsession, secondengine = make_session(seconddb)
         self.firstsession = firstsession
@@ -32,6 +39,7 @@ class DBDiff(object):
         self.secondinspector = inspect(secondengine)
         self.chunk_size = int(chunk_size)
         self.count_only = count_only
+        self.check_columns = check_columns
 
     def diff_table_data(self, tablename):
         try:
@@ -53,6 +61,10 @@ class DBDiff(object):
             if not pk:
                 return None, "no primary key(s) on this table." \
                              " Comparison is not possible."
+            columns = [ x["name"] for x in self.firstinspector.get_columns(tablename)]
+            columns = [x for x in self.check_columns if x in columns]
+            if len(columns) != len(self.check_columns):
+                return None, "missing checked columns"
 
         except NoSuchTableError:
             return False, "table is missing"
@@ -78,8 +90,12 @@ class DBDiff(object):
         LIMIT 1;
         """
 
+        if self.check_columns:
+            columns = f"{pk}, {', '.join(self.check_columns)}"
+        else:
+            columns = 't.*'
         SQL_TEMPLATE_HASH = f"""
-        SELECT md5(array_agg(md5((t.*)::varchar))::varchar)
+        SELECT md5(array_agg(md5(({columns})::varchar))::varchar)
         FROM (
                 SELECT *
                 FROM {tablename}
