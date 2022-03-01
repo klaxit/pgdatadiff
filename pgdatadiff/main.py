@@ -22,6 +22,7 @@ from docopt import docopt
 
 
 def main():
+    print(red("Using custom pgatadiff"))
     arguments = docopt(
         __doc__, version=pkg_resources.require("pgdatadiff")[0].version)
     first_db_connection_string=arguments['--firstdb']

@@ -57,34 +57,58 @@ class DBDiff(object):
         except NoSuchTableError:
             return False, "table is missing"
 
+        SQL_QUERY_FIRST_PK = f"""
+            SELECT {pk} FROM {tablename} ORDER BY {pk} LIMIT 1;
+        """
+        prev_cursor = None
+        cursor = self.firstsession.execute(SQL_QUERY_FIRST_PK).scalar()
+
+        if cursor != self.secondsession.execute(SQL_QUERY_FIRST_PK).scalar():
+            return False, "first primary keys are different"
+
+
+        SQL_QUERY_CURSOR = f"""
+        SELECT {pk} FROM(
+            SELECT {pk}
+            FROM {tablename}
+            WHERE {pk} >= :cursor
+            ORDER BY {pk} ASC
+            LIMIT :row_limit) s
+        ORDER BY {pk} DESC
+        LIMIT 1;
+        """
+
         SQL_TEMPLATE_HASH = f"""
         SELECT md5(array_agg(md5((t.*)::varchar))::varchar)
         FROM (
                 SELECT *
                 FROM {tablename}
-                ORDER BY {pk} limit :row_limit offset :row_offset
+                WHERE {pk} >= :cursor
+                ORDER BY {pk} ASC
+                limit :row_limit
             ) AS t;
-                        """
-
-        position = 0
-
-        while position <= firstquery.count():
+        """
+        while prev_cursor != cursor:
             firstresult = self.firstsession.execute(
                 SQL_TEMPLATE_HASH,
                 {"row_limit": self.chunk_size,
-                 "row_offset": position}).fetchone()
+                 "cursor": cursor}).scalar()
             secondresult = self.secondsession.execute(
                 SQL_TEMPLATE_HASH,
                 {"row_limit": self.chunk_size,
-                 "row_offset": position}).fetchone()
+                 "cursor": cursor}).scalar()
             if firstresult != secondresult:
-                return False, f"data is different - position {position} -" \
-                              f" {position + self.chunk_size}"
-            position += self.chunk_size
+                return False, f"data is different - start_cursor {cursor} -" \
+                              f" with {self.chunk_size}"
+            prev_cursor = cursor
+            cursor = self.firstsession.execute(
+               SQL_QUERY_CURSOR,
+               {"row_limit": self.chunk_size,
+                "cursor": cursor}).scalar()
         return True, "data is identical."
 
     def get_all_sequences(self):
-        GET_SEQUENCES_SQL = """SELECT c.relname FROM 
+        GET_SEQUENCES_SQL = """SELECT c.relname FROM
         pg_class c WHERE c.relkind = 'S';"""
         return [x[0] for x in
                 self.firstsession.execute(GET_SEQUENCES_SQL).fetchall()]
