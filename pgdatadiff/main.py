@@ -12,7 +12,7 @@ Options:
   --only-sequences   Only compare seqences, exclude data
   --count-only       Do a quick test based on counts alone
   --chunk-size=10000       The chunk size when comparing data [default: 10000]
-  --check-columns=column-name    Restrict check to given columns, repeatable. Primary key is always checked.
+  --check-columns=column-name    Restrict check to given columns. Repeat to add multiple columns. Primary key is always checked.
 """
 
 import pkg_resources
